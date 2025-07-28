@@ -45,7 +45,7 @@
    <script>
     // --- CONFIGURATION ---
     const backendUrl = "https://crypto-crash-gamee.onrender.com";
-    const playerId = "YOUR_PLAYER_ID"; // IMPORTANT: Replace with your actual Player ID
+    const playerId = "YOUR_PLAYER_ID"; 
 
     // --- ELEMENTS & STATE ---
     const gameStateDiv = document.getElementById('game-state');
@@ -54,7 +54,7 @@
     const betButton = document.getElementById('bet-button');
     const cashoutButton = document.getElementById('cashout-button');
     let hasBet = false;
-    let activeBetRoundId = null; // Will store the ID of the round we bet in
+    let activeBetRoundId = null; 
 
     // --- SOCKET.IO ---
     const socket = io(backendUrl);
@@ -81,7 +81,7 @@
         gameStateDiv.innerHTML = `🚀 Round #${data.round_id} has started!`;
         betButton.disabled = true;
         if (hasBet) {
-            activeBetRoundId = data.round_id; // IMPORTANT: Remember the round ID
+            activeBetRoundId = data.round_id; 
             cashoutButton.disabled = false;
         }
     });
@@ -109,8 +109,38 @@
 
     // --- FUNCTIONS ---
     async function placeBet() {
-        // ... (placeBet function logic remains the same)
+    if (!playerId || playerId === "YOUR_PLAYER_ID") {
+        alert("Please set your Player ID in the script first!");
+        return;
     }
+    const amount = parseFloat(betAmountInput.value);
+    if (!amount || amount <= 0) {
+        alert("Please enter a valid bet amount.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`${backendUrl}/api/bet`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                playerId: playerId,
+                amountUsd: amount,
+                currency: 'BTC'
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message);
+        }
+
+        showFeedback(`Bet of $${amount} placed successfully!`, 'success');
+        betButton.disabled = true;
+        hasBet = true;
+    } catch (error) {
+        showFeedback(`Error placing bet: ${error.message}`, 'error');
+    }
+}
 
     function cashOut() {
         if (!activeBetRoundId) {
@@ -122,22 +152,29 @@
         cashoutButton.disabled = true;
     }
 
-    function showFeedback(message, type) {
-        // ... (showFeedback function logic remains the same)
-    }
+   function showFeedback(message, type) {
+    // Find the feedback div and set its text to the message
+    userFeedbackDiv.textContent = message;
+    
+    // Change the text color based on the message type (success or error)
+    userFeedbackDiv.style.color = type === 'success' ? '#28a745' : '#dc3545';
+    
+    // Clear the message after 4 seconds
+    setTimeout(() => userFeedbackDiv.textContent = '', 4000);
+}
 
     function enableBetting() {
         betButton.disabled = false;
         cashoutButton.disabled = true;
         hasBet = false;
-        activeBetRoundId = null; // Reset on new betting phase
+        activeBetRoundId = null; 
     }
 
     function handleRoundEnd() {
         betButton.disabled = true;
         cashoutButton.disabled = true;
         hasBet = false;
-        activeBetRoundId = null; // Reset on round end
+        activeBetRoundId = null; 
     }
 </script>
 </body>
