@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Crash Game</title>
+    <style>
+        body { font-family: sans-serif; background-color: #1a1a1a; color: #e0e0e0; text-align: center; padding-top: 50px; }
+        #loading-message { font-size: 1.2em; color: #ffeb3b; }
+        /* Initially hide the main game container */
+        #game-container { display: none; }
+        #game-state { margin-bottom: 20px; font-size: 1.2em; }
+        #multiplier { font-size: 5em; font-weight: bold; color: #4caf50; }
+    </style>
+</head>
+<body>
+    <h1>Crypto Crash Game</h1>
+
+    <div id="loading-message">
+        <p>Connecting to the server...</p>
+        <p><b>Note:</b> The free server may take up to a minute to start if it's asleep. Please wait.</p>
+    </div>
+
+    <div id="game-container">
+        <div id="game-state"></div>
+        <div id="multiplier">--</div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // For local testing: "http://localhost:3000"
+        // For deployment: Your Render URL
+        const socket = io("http://localhost:3000");
+
+        const loadingDiv = document.getElementById('loading-message');
+        const gameContainerDiv = document.getElementById('game-container');
+        const gameStateDiv = document.getElementById('game-state');
+        const multiplierDiv = document.getElementById('multiplier');
+
+        socket.on('connect', () => {
+            // Hide the loading message and show the game
+            loadingDiv.style.display = 'none';
+            gameContainerDiv.style.display = 'block';
+            gameStateDiv.innerHTML = '✅ Successfully connected! Waiting for the next round...';
+        });
+
+        socket.on('round_start', (data) => {
+            gameStateDiv.innerHTML = `🚀 Round #${data.round_id} has started!`;
+            multiplierDiv.style.color = '#4caf50';
+        });
+
+        socket.on('multiplier_update', (data) => {
+            multiplierDiv.innerHTML = `${data.multiplier}x`;
+        });
+
+        socket.on('round_crash', (data) => {
+            gameStateDiv.innerHTML = `💥 Crashed at ${data.crash_point}x. Next round in 10 seconds...`;
+            multiplierDiv.innerHTML = `${data.crash_point}x`;
+            multiplierDiv.style.color = '#f44336';
+        });
+
+        socket.on('connect_error', (err) => {
+            loadingDiv.innerHTML = '❌ Connection to server failed. Please refresh the page to try again.';
+        });
+    </script>
+</body>
+</html>
