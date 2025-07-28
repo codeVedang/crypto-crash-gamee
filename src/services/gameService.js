@@ -41,23 +41,30 @@ const processCashout = async (playerId, cashoutMultiplier) => {
         const round = getCurrentRound();
         if (!round) throw new Error('No active round.');
 
-        const bet = round.bets.find(b => b.player_id.toString() === playerId);
-        if (!bet) throw new Error('No active bet found for this player.');
+        // Find the specific bet for this player in the current round
+        const bet = round.bets.find(b => b.player_id.toString() === playerId.toString());
+
+        if (!bet) throw new Error('Active bet not found for this player in the current round.');
         if (bet.cashout_multiplier) throw new Error('Already cashed out.');
-        if (cashoutMultiplier >= round.crash_point) throw new Error('Cashed out after crash.');
+        if (cashoutMultiplier >= round.crash_point) throw new Error('Too late! The game crashed.');
 
         const price = await getCryptoPrice(bet.currency);
+        if (!price) throw new Error('Could not retrieve crypto price for payout.');
+
         const payoutCrypto = bet.bet_amount_crypto * cashoutMultiplier;
         const payoutUsd = payoutCrypto * price;
 
         bet.cashout_multiplier = cashoutMultiplier;
         bet.payout_usd = payoutUsd;
-        await round.save({ session });
-        
+
         const player = await Player.findById(playerId).session(session);
+        if (!player) throw new Error('Player not found.');
+
         player.wallet.balance_usd += payoutUsd;
-        await player.save({ session });
-        
+
+        // Use Promise.all to save both documents concurrently
+        await Promise.all([round.save({ session }), player.save({ session })]);
+
         await session.commitTransaction();
 
         return {
@@ -70,7 +77,7 @@ const processCashout = async (playerId, cashoutMultiplier) => {
         };
     } catch (error) {
         await session.abortTransaction();
-        throw error; // Re-throw the error to be caught by the caller
+        throw error;
     } finally {
         session.endSession();
     }
