@@ -34,14 +34,15 @@ const startNewRound = async () => {
 
 const getCurrentRound = () => currentRound;
 
-const processCashout = async (playerId, cashoutMultiplier) => {
+// In src/services/gameService.js
+const processCashout = async (playerId, cashoutMultiplier, roundId) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const round = getCurrentRound();
-        if (!round) throw new Error('No active round.');
+        // Use the specific roundId to find the round instead of getCurrentRound()
+        const round = await GameRound.findOne({ round_id: roundId }).session(session);
+        if (!round) throw new Error('Round not found. It may have already ended.');
 
-        // Find the specific bet for this player in the current round
         const bet = round.bets.find(b => b.player_id.toString() === playerId.toString());
 
         if (!bet) throw new Error('Active bet not found for this player in the current round.');
@@ -62,7 +63,6 @@ const processCashout = async (playerId, cashoutMultiplier) => {
 
         player.wallet.balance_usd += payoutUsd;
 
-        // Use Promise.all to save both documents concurrently
         await Promise.all([round.save({ session }), player.save({ session })]);
 
         await session.commitTransaction();

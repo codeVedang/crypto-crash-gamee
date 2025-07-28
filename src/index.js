@@ -37,25 +37,21 @@ io.on('connection', (socket) => {
     console.log(`A user connected with socket ID: ${socket.id}`);
 
     // Handle cashout requests directly via WebSocket for low latency [cite: 66]
-    socket.on('cashout', async (data) => {
-        try {
-            const { playerId } = data;
-            const currentMultiplier = getCurrentRound() ? getCurrentRound().current_multiplier : 0;
-            const result = await processCashout(playerId, currentMultiplier);
-            // Notify the specific user of success
-            socket.emit('cashout_success', result);
-            // Broadcast to all users that this player cashed out
-            io.emit('player_cashed_out', {
-                playerId: result.playerId,
-                username: result.username,
-                cashoutMultiplier: result.cashoutMultiplier,
-                payoutUsd: result.payoutUsd
-            });
-        } catch (error) {
-            // Notify the specific user of the error
-            socket.emit('cashout_error', { message: error.message });
-        }
-    });
+ socket.on('cashout', async (data) => {
+    try {
+        // Destructure playerId AND roundId from the incoming data
+        const { playerId, roundId } = data;
+        const currentMultiplier = getCurrentRound() ? getCurrentRound().current_multiplier : 0;
+
+        // Pass the roundId to the processing function
+        const result = await processCashout(playerId, currentMultiplier, roundId);
+
+        // ... (rest of the cashout handler remains the same)
+
+    } catch (error) {
+        socket.emit('cashout_error', { message: error.message });
+    }
+});
 
     socket.on('disconnect', () => {
         console.log(`User with socket ID: ${socket.id} disconnected.`);
@@ -70,7 +66,8 @@ const gameLoop = async () => {
 
         let multiplier = 1.00;
         const roundInterval = setInterval(() => {
-            multiplier += 0.01 * (multiplier * 0.1);
+            
+            multiplier += 0.03;;
             round.current_multiplier = parseFloat(multiplier.toFixed(2)); // Store current multiplier
 
             io.emit('multiplier_update', { multiplier: multiplier.toFixed(2) });

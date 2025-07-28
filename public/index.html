@@ -44,10 +44,8 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         // --- CONFIGURATION ---
-        const backendUrl = "https://crypto-crash-gamee.onrender.com"; 
-        
-       
-        const playerId = "6887868a4a5b181b468fd33c"; 
+        const backendUrl = "https://crypto-crash-gamee.onrender.com"; // Your live backend URL
+        const playerId = "66a6a4a5b181b468fd33c"; // Your actual Player ID
         
         // --- ELEMENTS ---
         const loadingDiv = document.getElementById('loading-message');
@@ -61,6 +59,7 @@
 
         // --- STATE ---
         let hasBet = false;
+        let activeBetRoundId = null; // To store the round ID of our bet
 
         // --- SOCKET.IO ---
         const socket = io(backendUrl);
@@ -78,9 +77,10 @@
         socket.on('round_start', (data) => {
             gameStateDiv.innerHTML = `🚀 Round #${data.round_id} has started!`;
             multiplierDiv.style.color = '#4caf50';
-            betButton.disabled = true; // Disable betting after round starts
+            betButton.disabled = true;
             if (hasBet) {
-                cashoutButton.disabled = false; // Enable cashout if user has bet
+                activeBetRoundId = data.round_id; // Remember the round ID when it starts
+                cashoutButton.disabled = false;
             }
         });
 
@@ -102,7 +102,7 @@
 
         socket.on('cashout_error', (data) => {
             showFeedback(`❌ Cashout Error: ${data.message}`, 'error');
-            resetControls();
+            cashoutButton.disabled = true;
         });
 
         socket.on('connect_error', () => {
@@ -128,7 +128,7 @@
                     body: JSON.stringify({
                         playerId: playerId,
                         amountUsd: amount,
-                        currency: 'BTC' // Or make this selectable
+                        currency: 'BTC'
                     })
                 });
                 const result = await response.json();
@@ -144,7 +144,11 @@
         }
 
         function cashOut() {
-            socket.emit('cashout', { playerId: playerId });
+            if (!activeBetRoundId) {
+                showFeedback('Error: No active bet round ID found.', 'error');
+                return;
+            }
+            socket.emit('cashout', { playerId: playerId, roundId: activeBetRoundId });
             cashoutButton.disabled = true;
         }
         
@@ -158,6 +162,7 @@
             betButton.disabled = false;
             cashoutButton.disabled = true;
             hasBet = false;
+            activeBetRoundId = null; // Reset the round ID
         }
     </script>
 </body>
