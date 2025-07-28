@@ -42,140 +42,137 @@
     </div>
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-   <script>
-    // --- CONFIGURATION ---
-    const backendUrl = "https://crypto-crash-gamee.onrender.com";
-    const playerId = "6887868a4a5b181b468fd33c"; 
+    <script>
+        // --- CONFIGURATION ---
+        const backendUrl = "https://crypto-crash-gamee.onrender.com";
+        const playerId = "6887868a4a5b181b468fd33c"; // Your Player ID
 
-    // --- ELEMENTS & STATE ---
-    const gameStateDiv = document.getElementById('game-state');
-    const multiplierDiv = document.getElementById('multiplier');
-    const userFeedbackDiv = document.getElementById('user-feedback');
-    const betAmountInput = document.getElementById('bet-amount');
-    const cashoutButton = document.getElementById('cashout-button');
-    let hasBet = false;
-    let activeBetRoundId = null; 
+        // --- ELEMENTS & STATE ---
+        const loadingDiv = document.getElementById('loading-message');
+        const gameContainerDiv = document.getElementById('game-container');
+        const gameStateDiv = document.getElementById('game-state');
+        const multiplierDiv = document.getElementById('multiplier');
+        const userFeedbackDiv = document.getElementById('user-feedback');
+        const betButton = document.getElementById('bet-button');
+        const cashoutButton = document.getElementById('cashout-button');
+        const betAmountInput = document.getElementById('bet-amount');
+        let hasBet = false;
+        let activeBetRoundId = null;
 
-    // --- SOCKET.IO ---
-    const socket = io(backendUrl);
+        // --- SOCKET.IO ---
+        const socket = io(backendUrl);
 
-    // --- EVENT LISTENERS ---
-    document.getElementById('bet-button').addEventListener('click', placeBet);
-    document.getElementById('cashout-button').addEventListener('click', cashOut);
+        // --- EVENT LISTENERS ---
+        betButton.addEventListener('click', placeBet);
+        cashoutButton.addEventListener('click', cashOut);
 
-    socket.on('connect', () => {
-        document.getElementById('loading-message').style.display = 'none';
-        document.getElementById('game-container').style.display = 'block';
-        handleRoundEnd();
-        gameStateDiv.innerHTML = '✅ Connected! Waiting for the next betting round.';
-    });
-
-    socket.on('betting_phase_start', (data) => {
-        gameStateDiv.innerHTML = `Betting open for Round #${data.round_id}. Round starts soon!`;
-        multiplierDiv.style.color = '#4caf50';
-        multiplierDiv.innerHTML = '--';
-        enableBetting();
-    });
-
-    socket.on('round_start', (data) => {
-        gameStateDiv.innerHTML = `🚀 Round #${data.round_id} has started!`;
-        betButton.disabled = true;
-        if (hasBet) {
-            activeBetRoundId = data.round_id; 
-            cashoutButton.disabled = false;
-        }
-    });
-
-    socket.on('multiplier_update', (data) => {
-        multiplierDiv.innerHTML = `${data.multiplier}x`;
-    });
-
-    socket.on('round_crash', (data) => {
-        gameStateDiv.innerHTML = `💥 Crashed at ${data.crash_point}x. Next betting round starts soon...`;
-        multiplierDiv.innerHTML = `${data.crash_point}x`;
-        multiplierDiv.style.color = '#f44336';
-        handleRoundEnd();
-    });
-
-    socket.on('cashout_success', (data) => {
-        showFeedback(`✅ Cashed out at ${data.cashoutMultiplier}x! Won $${data.payoutUsd}.`, 'success');
-        handleRoundEnd();
-    });
-
-    socket.on('cashout_error', (data) => {
-        showFeedback(`❌ Cashout Error: ${data.message}`, 'error');
-        cashoutButton.disabled = true;
-    });
-
-    // --- FUNCTIONS ---
-    async function placeBet() {
-    if (!playerId || playerId === "YOUR_PLAYER_ID") {
-        alert("Please set your Player ID in the script first!");
-        return;
-    }
-    const amount = parseFloat(betAmountInput.value);
-    if (!amount || amount <= 0) {
-        alert("Please enter a valid bet amount.");
-        return;
-    }
-
-    try {
-        const response = await fetch(`${backendUrl}/api/bet`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                playerId: playerId,
-                amountUsd: amount,
-                currency: 'BTC'
-            })
+        socket.on('connect', () => {
+            loadingDiv.style.display = 'none';
+            gameContainerDiv.style.display = 'block';
+            handleRoundEnd();
+            gameStateDiv.innerHTML = '✅ Connected! Waiting for the next betting round.';
         });
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.message);
+
+        socket.on('betting_phase_start', (data) => {
+            gameStateDiv.innerHTML = `Betting open for Round #${data.round_id}. Round starts soon!`;
+            multiplierDiv.style.color = '#4caf50';
+            multiplierDiv.innerHTML = '--';
+            enableBetting();
+        });
+
+        socket.on('round_start', (data) => {
+            gameStateDiv.innerHTML = `🚀 Round #${data.round_id} has started!`;
+            betButton.disabled = true;
+            if (hasBet) {
+                activeBetRoundId = data.round_id;
+                cashoutButton.disabled = false;
+            }
+        });
+
+        socket.on('multiplier_update', (data) => {
+            multiplierDiv.innerHTML = `${data.multiplier}x`;
+        });
+
+        socket.on('round_crash', (data) => {
+            gameStateDiv.innerHTML = `💥 Crashed at ${data.crash_point}x. Next betting round starts soon...`;
+            multiplierDiv.innerHTML = `${data.crash_point}x`;
+            multiplierDiv.style.color = '#f44336';
+            handleRoundEnd();
+        });
+
+        socket.on('cashout_success', (data) => {
+            showFeedback(`✅ Cashed out at ${data.cashoutMultiplier}x! Won $${data.payoutUsd}.`, 'success');
+            handleRoundEnd();
+        });
+
+        socket.on('cashout_error', (data) => {
+            showFeedback(`❌ Cashout Error: ${data.message}`, 'error');
+            cashoutButton.disabled = true;
+        });
+
+        // --- FUNCTIONS ---
+        async function placeBet() {
+            if (!playerId || playerId === "YOUR_PLAYER_ID") {
+                alert("Please set your Player ID in the script first!");
+                return;
+            }
+            const amount = parseFloat(betAmountInput.value);
+            if (!amount || amount <= 0) {
+                alert("Please enter a valid bet amount.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${backendUrl}/api/bet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerId: playerId,
+                        amountUsd: amount,
+                        currency: 'BTC'
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message);
+                }
+
+                showFeedback(`Bet of $${amount} placed successfully!`, 'success');
+                betButton.disabled = true;
+                hasBet = true;
+            } catch (error) {
+                showFeedback(`Error placing bet: ${error.message}`, 'error');
+            }
         }
 
-        showFeedback(`Bet of $${amount} placed successfully!`, 'success');
-        betButton.disabled = true;
-        hasBet = true;
-    } catch (error) {
-        showFeedback(`Error placing bet: ${error.message}`, 'error');
-    }
-}
-
-    function cashOut() {
-        if (!activeBetRoundId) {
-            showFeedback('Error: Cannot cash out, no active round ID found.', 'error');
-            return;
+        function cashOut() {
+            if (!activeBetRoundId) {
+                showFeedback('Error: Cannot cash out, no active round ID found.', 'error');
+                return;
+            }
+            socket.emit('cashout', { playerId: playerId, roundId: activeBetRoundId });
+            cashoutButton.disabled = true;
         }
-        // IMPORTANT: Send the specific round ID
-        socket.emit('cashout', { playerId: playerId, roundId: activeBetRoundId });
-        cashoutButton.disabled = true;
-    }
 
-   function showFeedback(message, type) {
-    // Find the feedback div and set its text to the message
-    userFeedbackDiv.textContent = message;
-    
-    // Change the text color based on the message type (success or error)
-    userFeedbackDiv.style.color = type === 'success' ? '#28a745' : '#dc3545';
-    
-    // Clear the message after 4 seconds
-    setTimeout(() => userFeedbackDiv.textContent = '', 4000);
-}
+        function showFeedback(message, type) {
+            userFeedbackDiv.textContent = message;
+            userFeedbackDiv.style.color = type === 'success' ? '#28a745' : '#dc3545';
+            setTimeout(() => userFeedbackDiv.textContent = '', 4000);
+        }
 
-    function enableBetting() {
-        betButton.disabled = false;
-        cashoutButton.disabled = true;
-        hasBet = false;
-        activeBetRoundId = null; 
-    }
+        function enableBetting() {
+            betButton.disabled = false;
+            cashoutButton.disabled = true;
+            hasBet = false;
+            activeBetRoundId = null;
+        }
 
-    function handleRoundEnd() {
-        betButton.disabled = true;
-        cashoutButton.disabled = true;
-        hasBet = false;
-        activeBetRoundId = null; 
-    }
-</script>
+        function handleRoundEnd() {
+            betButton.disabled = true;
+            cashoutButton.disabled = true;
+            hasBet = false;
+            activeBetRoundId = null;
+        }
+    </script>
 </body>
 </html>
