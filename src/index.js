@@ -61,40 +61,48 @@ io.on('connection', (socket) => {
 // --- Core Game Loop ---
 const gameLoop = async () => {
     try {
-     
+        // PHASE 1: BETTING WINDOW
         const round = await startNewRound();
         console.log(`Round #${round.round_id} betting phase started.`);
         io.emit('betting_phase_start', { round_id: round.round_id, duration: 5000 });
 
-    
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-     
+        // PHASE 2: ROUND RUNNING
         console.log(`Round #${round.round_id} running.`);
         io.emit('round_start', { round_id: round.round_id, seed_hash: round.hash });
 
         let multiplier = 1.00;
-        const roundInterval = setInterval(() => {
-            multiplier += 0.03;
-            round.current_multiplier = parseFloat(multiplier.toFixed(2));
+        const roundInterval = setInterval(async () => { // Make the callback async
+            try {
+                multiplier += 0.03;
+                round.current_multiplier = parseFloat(multiplier.toFixed(2));
 
-            io.emit('multiplier_update', { multiplier: multiplier.toFixed(2) });
+                io.emit('multiplier_update', { multiplier: multiplier.toFixed(2) });
 
-            if (multiplier >= round.crash_point) {
-                clearInterval(roundInterval);
-                round.end_time = new Date();
-                round.save();
-                io.emit('round_crash', { crash_point: round.crash_point.toFixed(2) });
-                console.log(`Round #${round.round_id} crashed.`);
-
-               
-                setTimeout(gameLoop, 5000);
+                if (multiplier >= round.crash_point) {
+                    // This block will now handle errors correctly
+                    clearInterval(roundInterval);
+                    round.end_time = new Date();
+                    await round.save(); // Await the save operation to catch potential errors
+                    
+                    io.emit('round_crash', { crash_point: round.crash_point.toFixed(2) });
+                    console.log(`Round #${round.round_id} crashed. Scheduling next round.`);
+                    
+                    setTimeout(gameLoop, 5000); // Schedule the next round
+                }
+            } catch (error) {
+                // Catch errors inside the interval (e.g., database save fails)
+                console.error("Error during round execution:", error);
+                clearInterval(roundInterval); // Stop this broken round
+                setTimeout(gameLoop, 5000); // Try to start the next round anyway
             }
         }, 100);
 
     } catch (error) {
-        console.error('An error occurred in the game loop:', error);
-        setTimeout(gameLoop, 5000);
+        // Catch errors from startNewRound() or other initial setup
+        console.error('A critical error occurred in the game loop:', error);
+        setTimeout(gameLoop, 5000); // Still try to restart the loop
     }
 };
 
