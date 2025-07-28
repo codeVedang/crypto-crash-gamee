@@ -22,7 +22,7 @@ router.post('/players', async (req, res) => {
     }
 });
 
-// GET /api/players/:id/balance - Check player's wallet balance [cite: 46]
+// GET /api/players/:id/balance - Check player's wallet balance 
 router.get('/players/:id/balance', async (req, res) => {
     try {
         const player = await Player.findById(req.params.id);
@@ -35,7 +35,7 @@ router.get('/players/:id/balance', async (req, res) => {
     }
 });
 
-// POST /api/bet - Place a bet [cite: 24]
+// POST /api/bet - Place a bet 
 router.post('/bet', async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -76,7 +76,7 @@ router.post('/bet', async (req, res) => {
     }
 });
 
-// POST /api/cashout - Cash out from the current round [cite: 25]
+// POST /api/cashout - Cash out from the current round
 router.post('/cashout', async (req, res) => {
     try {
         const { playerId } = req.body;
@@ -85,7 +85,7 @@ router.post('/cashout', async (req, res) => {
 
         const result = await processCashout(playerId, currentMultiplier);
         
-        // Broadcast the cashout event to all clients [cite: 63]
+        // Broadcast the cashout event to all clients 
         req.io.emit('player_cashed_out', {
             playerId: result.playerId,
             username: result.username,
