@@ -61,48 +61,43 @@ io.on('connection', (socket) => {
 // --- Core Game Loop ---
 const gameLoop = async () => {
     try {
-        // PHASE 1: BETTING WINDOW
+        // PHASE 1: BETTING (5 seconds)
         const round = await startNewRound();
-        console.log(`Round #${round.round_id} betting phase started.`);
         io.emit('betting_phase_start', { round_id: round.round_id, duration: 5000 });
-
+        console.log(`Round #${round.round_id} betting has started.`);
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        // PHASE 2: ROUND RUNNING
-        console.log(`Round #${round.round_id} running.`);
+        // PHASE 2: GAME RUNNING
         io.emit('round_start', { round_id: round.round_id, seed_hash: round.hash });
-
+        console.log(`Round #${round.round_id} is running.`);
+        
         let multiplier = 1.00;
-        const roundInterval = setInterval(async () => { // Make the callback async
-            try {
-                multiplier += 0.03;
-                round.current_multiplier = parseFloat(multiplier.toFixed(2));
+        
+        // This is a self-correcting loop that runs every 100ms
+        const runRound = () => {
+            multiplier += 0.03;
+            round.current_multiplier = parseFloat(multiplier.toFixed(2));
+            io.emit('multiplier_update', { multiplier: multiplier.toFixed(2) });
 
-                io.emit('multiplier_update', { multiplier: multiplier.toFixed(2) });
+            if (multiplier < round.crash_point) {
+                setTimeout(runRound, 100); // Continue the current round
+            } else {
+                // The round has crashed
+                round.end_time = new Date();
+                io.emit('round_crash', { crash_point: round.crash_point.toFixed(2) });
+                console.log(`Round #${round.round_id} crashed at ${round.crash_point.toFixed(2)}x. Scheduling next round.`);
 
-                if (multiplier >= round.crash_point) {
-                    // This block will now handle errors correctly
-                    clearInterval(roundInterval);
-                    round.end_time = new Date();
-                    await round.save(); // Await the save operation to catch potential errors
-                    
-                    io.emit('round_crash', { crash_point: round.crash_point.toFixed(2) });
-                    console.log(`Round #${round.round_id} crashed. Scheduling next round.`);
-                    
-                    setTimeout(gameLoop, 5000); // Schedule the next round
-                }
-            } catch (error) {
-                // Catch errors inside the interval (e.g., database save fails)
-                console.error("Error during round execution:", error);
-                clearInterval(roundInterval); // Stop this broken round
-                setTimeout(gameLoop, 5000); // Try to start the next round anyway
+                // Save the round and schedule the next full game loop
+                round.save().catch(err => console.error("Failed to save round data:", err));
+                setTimeout(gameLoop, 5000);
             }
-        }, 100);
+        };
+        
+        runRound(); // Start the multiplier loop
 
     } catch (error) {
-        // Catch errors from startNewRound() or other initial setup
-        console.error('A critical error occurred in the game loop:', error);
-        setTimeout(gameLoop, 5000); // Still try to restart the loop
+        console.error('A critical error occurred and the game loop will restart:', error);
+        setTimeout(gameLoop, 5000); // Attempt to restart the loop even on critical failure
     }
 };
 
