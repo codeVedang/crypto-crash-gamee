@@ -44,8 +44,8 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         // --- CONFIGURATION ---
-       const backendUrl = "https://crypto-crash-gamee.onrender.com"; 
-       const playerId = "6887868a4a5b181b468fd33c";
+        const backendUrl = "https://crypto-crash-gamee.onrender.com"; 
+        const playerId = "66a6a4a5b181b468fd33c"; // Your Player ID is set here.
         
         // --- ELEMENTS & STATE ---
         const loadingDiv = document.getElementById('loading-message');
@@ -108,9 +108,14 @@
             cashoutButton.disabled = true;
         });
 
+        socket.on('connect_error', (err) => {
+            loadingDiv.innerHTML = '❌ Connection to server failed. Please refresh the page to try again.';
+        });
+
         // --- FUNCTIONS ---
         async function placeBet() {
-            if (!playerId || playerId === "6887868a4a5b181b468fd33c") {
+            // This condition is now fixed.
+            if (!playerId || playerId === "YOUR_PLAYER_ID") {
                 alert("Please set your Player ID in the script first!");
                 return;
             }
@@ -142,7 +147,8 @@
         function showFeedback(message, type) {
             userFeedbackDiv.textContent = message;
             userFeedbackDiv.style.color = type === 'success' ? '#28a745' : '#dc3545';
-            setTimeout(() => userFeedbackdiv.textContent = '', 4000);
+            // Typo is now fixed here.
+            setTimeout(() => userFeedbackDiv.textContent = '', 4000);
         }
 
         function enableBetting() {
