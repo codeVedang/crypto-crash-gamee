@@ -2,7 +2,6 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const GameRound = require('../models/gameRound');
 const Player = require('../models/player');
-const Transaction = require('../models/transaction');
 const { getCryptoPrice } = require('./cryptoService');
 
 let currentRound = null;
@@ -17,7 +16,7 @@ const generateCrashPoint = (seed, roundNumber) => {
 
 const startNewRound = async () => {
     const lastRound = await GameRound.findOne().sort({ start_time: -1 });
-    const roundCounter = lastRound ? lastRound.round_id + 1 : 1;
+    const roundCounter = lastRound ? lastRound.round_id + 1 : 0;
     
     const seed = crypto.randomBytes(16).toString('hex');
     const { hash, crashPoint } = generateCrashPoint(seed, roundCounter);
@@ -34,17 +33,21 @@ const startNewRound = async () => {
 
 const getCurrentRound = () => currentRound;
 
-// In src/services/gameService.js
-const processCashout = async (playerId, cashoutMultiplier) => {
+const processCashout = async (playerId, cashoutMultiplier, roundId) => {
+    if (!roundId) {
+        throw new Error("Round ID is missing. Cannot process cashout.");
+    }
+
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const round = getCurrentRound();
-        if (!round) throw new Error('No active round.');
+        // IMPORTANT: Find the specific round from the database using its ID
+        const round = await GameRound.findOne({ round_id: roundId }).session(session);
+        if (!round) throw new Error('Round not found. It may have already ended.');
 
         const bet = round.bets.find(b => b.player_id.toString() === playerId.toString());
 
-        if (!bet) throw new Error('Active bet not found for this player in the current round.');
+        if (!bet) throw new Error('Active bet not found for this player in this round.');
         if (bet.cashout_multiplier) throw new Error('Already cashed out.');
         if (cashoutMultiplier >= round.crash_point) throw new Error('Too late! The game crashed.');
 
@@ -56,14 +59,14 @@ const processCashout = async (playerId, cashoutMultiplier) => {
 
         bet.cashout_multiplier = cashoutMultiplier;
         bet.payout_usd = payoutUsd;
-
+        
         const player = await Player.findById(playerId).session(session);
         if (!player) throw new Error('Player not found.');
-
+        
         player.wallet.balance_usd += payoutUsd;
-
+        
         await Promise.all([round.save({ session }), player.save({ session })]);
-
+        
         await session.commitTransaction();
 
         return {

@@ -37,17 +37,22 @@ io.on('connection', (socket) => {
     console.log(`A user connected with socket ID: ${socket.id}`);
 
     
- socket.on('cashout', async (data) => {
+// In src/index.js
+socket.on('cashout', async (data) => {
     try {
-        
+        // Destructure playerId AND roundId from the incoming data
         const { playerId, roundId } = data;
-        const currentMultiplier = getCurrentRound() ? getCurrentRound().current_multiplier : 0;
+        const currentMultiplier = getCurrentRound()?.current_multiplier || 0;
 
-   
+        // Pass the specific roundId to the processing function
         const result = await processCashout(playerId, currentMultiplier, roundId);
 
-        
-
+        socket.emit('cashout_success', result);
+        io.emit('player_cashed_out', {
+            username: result.username,
+            cashoutMultiplier: result.cashoutMultiplier,
+            payoutUsd: result.payoutUsd
+        });
     } catch (error) {
         socket.emit('cashout_error', { message: error.message });
     }
