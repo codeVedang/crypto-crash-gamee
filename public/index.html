@@ -5,48 +5,83 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Crash Game</title>
     <style>
-        body { font-family: sans-serif; background-color: #1a1a1a; color: #e0e0e0; text-align: center; padding-top: 50px; }
-        #loading-message { font-size: 1.2em; color: #ffeb3b; }
-        /* Initially hide the main game container */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #e0e0e0; text-align: center; padding-top: 2rem; margin: 0; }
+        .container { max-width: 600px; margin: auto; padding: 2rem; }
+        #loading-message, #user-feedback { font-size: 1.2em; color: #ffeb3b; min-height: 50px; }
         #game-container { display: none; }
         #game-state { margin-bottom: 20px; font-size: 1.2em; }
-        #multiplier { font-size: 5em; font-weight: bold; color: #4caf50; }
+        #multiplier { font-size: 6em; font-weight: bold; color: #4caf50; margin: 2rem 0; }
+        .controls { display: flex; gap: 10px; justify-content: center; margin-top: 2rem; }
+        .controls input { background-color: #333; border: 1px solid #555; color: white; padding: 12px; border-radius: 8px; font-size: 1em; width: 150px; }
+        .controls button { padding: 12px 20px; font-size: 1em; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; transition: background-color 0.2s; }
+        #bet-button { background-color: #007bff; color: white; }
+        #cashout-button { background-color: #28a745; color: white; }
+        #bet-button:disabled, #cashout-button:disabled { background-color: #555; cursor: not-allowed; }
     </style>
 </head>
 <body>
-    <h1>Crypto Crash Game</h1>
+    <div class="container">
+        <h1>Crypto Crash Game</h1>
 
-    <div id="loading-message">
-        <p>Connecting to the server...</p>
-        <p><b>Note:</b> The free server may take up to a minute to start if it's asleep. Please wait.</p>
+        <div id="loading-message">
+            <p>Connecting to the server...</p>
+            <p><b>Note:</b> The free server may take up to a minute to start if it's asleep. Please wait.</p>
+        </div>
+
+        <div id="user-feedback"></div>
+
+        <div id="game-container">
+            <div id="game-state"></div>
+            <div id="multiplier">--</div>
+            <div class="controls">
+                <input type="number" id="bet-amount" placeholder="Bet in USD" value="10">
+                <button id="bet-button">Bet Now</button>
+                <button id="cashout-button" disabled>Cash Out</button>
+            </div>
+        </div>
     </div>
 
-    <div id="game-container">
-        <div id="game-state"></div>
-        <div id="multiplier">--</div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        // For local testing: "http://localhost:3000"
-        // For deployment: Your Render URL
-        const socket = io("http://localhost:3000");
-
+        // --- CONFIGURATION ---
+        const backendUrl = "http://localhost:3000"; // IMPORTANT: Change to your Render URL for deployment
+        
+        // IMPORTANT: Replace this with a valid Player ID from your database!
+        const playerId = "PASTE_YOUR_PLAYER_ID_HERE"; 
+        
+        // --- ELEMENTS ---
         const loadingDiv = document.getElementById('loading-message');
         const gameContainerDiv = document.getElementById('game-container');
         const gameStateDiv = document.getElementById('game-state');
         const multiplierDiv = document.getElementById('multiplier');
+        const userFeedbackDiv = document.getElementById('user-feedback');
+        const betButton = document.getElementById('bet-button');
+        const cashoutButton = document.getElementById('cashout-button');
+        const betAmountInput = document.getElementById('bet-amount');
+
+        // --- STATE ---
+        let hasBet = false;
+
+        // --- SOCKET.IO ---
+        const socket = io(backendUrl);
+
+        // --- EVENT LISTENERS ---
+        betButton.addEventListener('click', placeBet);
+        cashoutButton.addEventListener('click', cashOut);
 
         socket.on('connect', () => {
-            // Hide the loading message and show the game
             loadingDiv.style.display = 'none';
             gameContainerDiv.style.display = 'block';
-            gameStateDiv.innerHTML = '✅ Successfully connected! Waiting for the next round...';
+            gameStateDiv.innerHTML = '✅ Connected! Place your bet for the next round.';
         });
 
         socket.on('round_start', (data) => {
             gameStateDiv.innerHTML = `🚀 Round #${data.round_id} has started!`;
             multiplierDiv.style.color = '#4caf50';
+            betButton.disabled = true; // Disable betting after round starts
+            if (hasBet) {
+                cashoutButton.disabled = false; // Enable cashout if user has bet
+            }
         });
 
         socket.on('multiplier_update', (data) => {
@@ -57,11 +92,73 @@
             gameStateDiv.innerHTML = `💥 Crashed at ${data.crash_point}x. Next round in 10 seconds...`;
             multiplierDiv.innerHTML = `${data.crash_point}x`;
             multiplierDiv.style.color = '#f44336';
+            resetControls();
+        });
+        
+        socket.on('cashout_success', (data) => {
+            showFeedback(`✅ Cashed out successfully at ${data.cashoutMultiplier}x! Won $${data.payoutUsd}.`, 'success');
+            resetControls();
         });
 
-        socket.on('connect_error', (err) => {
+        socket.on('cashout_error', (data) => {
+            showFeedback(`❌ Cashout Error: ${data.message}`, 'error');
+            resetControls();
+        });
+
+        socket.on('connect_error', () => {
             loadingDiv.innerHTML = '❌ Connection to server failed. Please refresh the page to try again.';
         });
+
+        // --- FUNCTIONS ---
+        async function placeBet() {
+            if (!playerId || playerId === "PASTE_YOUR_PLAYER_ID_HERE") {
+                alert("Please set your Player ID in the script first!");
+                return;
+            }
+            const amount = parseFloat(betAmountInput.value);
+            if (!amount || amount <= 0) {
+                alert("Please enter a valid bet amount.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${backendUrl}/api/bet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerId: playerId,
+                        amountUsd: amount,
+                        currency: 'BTC' // Or make this selectable
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message);
+                }
+                showFeedback(`Bet of $${amount} placed successfully! Waiting for round to start.`, 'success');
+                betButton.disabled = true;
+                hasBet = true;
+            } catch (error) {
+                showFeedback(`Error placing bet: ${error.message}`, 'error');
+            }
+        }
+
+        function cashOut() {
+            socket.emit('cashout', { playerId: playerId });
+            cashoutButton.disabled = true;
+        }
+        
+        function showFeedback(message, type) {
+            userFeedbackDiv.textContent = message;
+            userFeedbackDiv.style.color = type === 'success' ? '#28a745' : '#dc3545';
+            setTimeout(() => userFeedbackDiv.textContent = '', 4000);
+        }
+
+        function resetControls() {
+            betButton.disabled = false;
+            cashoutButton.disabled = true;
+            hasBet = false;
+        }
     </script>
 </body>
 </html>
