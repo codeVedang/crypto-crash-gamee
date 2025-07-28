@@ -2,10 +2,19 @@
 
 A real-time, multiplayer "Crash" game backend built with Node.js, Express, MongoDB, and Socket.IO. This project simulates a crypto-based betting experience where players must cash out before the multiplier crashes.
 
+## 🔗 Live Demo
+
+You can test the live application here:
+
+-   **Frontend (Vercel)**: [https://your-frontend-link.vercel.app](https://vedang-crypto-crash-gamee.vercel.app/)
+-   **Backend Server (Render)**: [https://your-backend-link.onrender.com](https://crypto-crash-gamee.onrender.com)
+
+*(Note: The free backend server on Render may take up to a minute to start if it has been inactive.)*
+
 ## ✨ Features
 
 -   **Real-Time Gameplay**: A multiplier increases exponentially, with updates broadcast to all clients every 100ms using WebSockets.
--   **Live Betting System**: Players bet in USD, which is converted on-the-fly to BTC or ETH using real-time prices.
+-   **Live Betting System**: Players bet in USD, which is converted on-the-fly to BTC or ETH using a real-time price API.
 -   **Multiplayer Experience**: See other players' cash-out events as they happen.
 -   **Provably Fair**: The crash point for each round is determined by a cryptographically secure and verifiable algorithm.
 -   **Wallet & Transaction Simulation**: The system manages player balances and logs all bets and payouts.
