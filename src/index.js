@@ -36,17 +36,17 @@ mongoose.connect(process.env.MONGO_URI)
 io.on('connection', (socket) => {
     console.log(`A user connected with socket ID: ${socket.id}`);
 
-    // Handle cashout requests directly via WebSocket for low latency [cite: 66]
+    
  socket.on('cashout', async (data) => {
     try {
-        // Destructure playerId AND roundId from the incoming data
+        
         const { playerId, roundId } = data;
         const currentMultiplier = getCurrentRound() ? getCurrentRound().current_multiplier : 0;
 
-        // Pass the roundId to the processing function
+   
         const result = await processCashout(playerId, currentMultiplier, roundId);
 
-        // ... (rest of the cashout handler remains the same)
+        
 
     } catch (error) {
         socket.emit('cashout_error', { message: error.message });
@@ -61,14 +61,22 @@ io.on('connection', (socket) => {
 // --- Core Game Loop ---
 const gameLoop = async () => {
     try {
+     
         const round = await startNewRound();
+        console.log(`Round #${round.round_id} betting phase started.`);
+        io.emit('betting_phase_start', { round_id: round.round_id, duration: 5000 });
+
+    
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+     
+        console.log(`Round #${round.round_id} running.`);
         io.emit('round_start', { round_id: round.round_id, seed_hash: round.hash });
 
         let multiplier = 1.00;
         const roundInterval = setInterval(() => {
-            
-            multiplier += 0.03;;
-            round.current_multiplier = parseFloat(multiplier.toFixed(2)); // Store current multiplier
+            multiplier += 0.03;
+            round.current_multiplier = parseFloat(multiplier.toFixed(2));
 
             io.emit('multiplier_update', { multiplier: multiplier.toFixed(2) });
 
@@ -77,13 +85,16 @@ const gameLoop = async () => {
                 round.end_time = new Date();
                 round.save();
                 io.emit('round_crash', { crash_point: round.crash_point.toFixed(2) });
-                setTimeout(gameLoop, 10000);
+                console.log(`Round #${round.round_id} crashed.`);
+
+               
+                setTimeout(gameLoop, 5000);
             }
         }, 100);
 
     } catch (error) {
         console.error('An error occurred in the game loop:', error);
-        setTimeout(gameLoop, 10000);
+        setTimeout(gameLoop, 5000);
     }
 };
 

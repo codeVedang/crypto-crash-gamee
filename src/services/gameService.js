@@ -35,13 +35,12 @@ const startNewRound = async () => {
 const getCurrentRound = () => currentRound;
 
 // In src/services/gameService.js
-const processCashout = async (playerId, cashoutMultiplier, roundId) => {
+const processCashout = async (playerId, cashoutMultiplier) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        // Use the specific roundId to find the round instead of getCurrentRound()
-        const round = await GameRound.findOne({ round_id: roundId }).session(session);
-        if (!round) throw new Error('Round not found. It may have already ended.');
+        const round = getCurrentRound();
+        if (!round) throw new Error('No active round.');
 
         const bet = round.bets.find(b => b.player_id.toString() === playerId.toString());
 
